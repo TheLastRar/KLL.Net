@@ -156,6 +156,8 @@ namespace KLLNet
             //Fill all the SC into VKs array
             #region ScanCode
             layout.keys = new Dictionary<ScanCode, PhysicalKey>();
+            //Some virtual keys are assigned to multiple Scancodes (TAB gets assigned to 0x7C)
+            Dictionary<ushort, PhysicalKey> vkToKey = new Dictionary<ushort, PhysicalKey>();
             for (int i = 0; i < KbdTables64->bMaxVSCtoVK; i++)
             {
                 if (KbdTables64->pVSCtoVK[i] == 0xFF)
@@ -164,6 +166,15 @@ namespace KLLNet
                 sc.Code = (byte)i;
 
                 PhysicalKey pk = new PhysicalKey(layout);
+
+                if (vkToKey.ContainsKey(KbdTables64->pVSCtoVK[i]))
+                {
+                    ScanCode oldsc = layout.keys.FirstOrDefault(x => x.Value == vkToKey[KbdTables64->pVSCtoVK[i]]).Key;
+                    Console.WriteLine($"VK 0x{KbdTables64->pVSCtoVK[i]:X} has multiple SC (All Non-Extended), new SC:0x{sc.Code:X}, old SC:0x{oldsc.Code:X}");
+                }
+                else
+                    vkToKey.Add(KbdTables64->pVSCtoVK[i], pk);
+
                 pk.virtualKeyCode = KbdTables64->pVSCtoVK[i];
                 layout.keys.Add(sc, pk);
             }
@@ -176,6 +187,15 @@ namespace KLLNet
                 sc.E0Set = true;
 
                 PhysicalKey pk = new PhysicalKey(layout);
+
+                if (vkToKey.ContainsKey(e0ScanCodes->Vk))
+                {
+                    ScanCode oldsc = layout.keys.FirstOrDefault(x => x.Value == vkToKey[e0ScanCodes->Vk]).Key;
+                    Console.WriteLine($"VK 0x{e0ScanCodes->Vk:X} has multiple SC, new SC:0x{sc.Code:X}, E0:true, old SC:0x{oldsc.Code:X}, E0:{oldsc.E0Set}");
+                }
+                else
+                    vkToKey.Add(e0ScanCodes->Vk, pk);
+
                 pk.virtualKeyCode = e0ScanCodes->Vk;
                 layout.keys.Add(sc, pk);
 
@@ -190,6 +210,15 @@ namespace KLLNet
                 sc.E1Set = true;
 
                 PhysicalKey pk = new PhysicalKey(layout);
+
+                if (vkToKey.ContainsKey(e1ScanCodes->Vk))
+                {
+                    ScanCode oldsc = layout.keys.FirstOrDefault(x => x.Value == vkToKey[e1ScanCodes->Vk]).Key;
+                    Console.WriteLine($"VK 0x{e1ScanCodes->Vk:X} has multiple SC");
+                }
+                else
+                    vkToKey.Add(e1ScanCodes->Vk, pk);
+
                 pk.virtualKeyCode = e1ScanCodes->Vk;
                 layout.keys.Add(sc, pk);
 
@@ -370,6 +399,9 @@ namespace KLLNet
 
                 if (pkinfo != null)
                     pkinfo.Name = Marshal.PtrToStringUni(keyNamesExt->pwsz);
+                else
+                    Console.WriteLine("NameExt with no key:" + Marshal.PtrToStringUni(keyNamesExt->pwsz));
+
                 keyNamesExt++;
             }
 
