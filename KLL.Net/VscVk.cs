@@ -8,10 +8,14 @@ namespace KLLNet
     *  Vk  - Virtual Key | flags
     * Used by VKFromVSC() for scancodes prefixed 0xE0 or 0xE1
     \***************************************************************************/
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Unicode)]
     struct VscVk
     {
+        [FieldOffset(0)]
         public byte Vsc;
-        public ushort Vk;
+        [FieldOffset(2)]
+        public byte Vk;
+        [FieldOffset(3)]
+        public byte Flags;
     }
 }
