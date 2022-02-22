@@ -134,8 +134,8 @@ namespace KLLNet
 
         internal ushort virtualKeyCode;
 
-        internal List<KeyCharacter> characters = new List<KeyCharacter>();
-        internal List<KeyCharacter> sgCharacters = new List<KeyCharacter>();
+        internal List<KeyCharacter> characters;
+        internal List<KeyCharacter> sgCharacters;
 
         /// <summary>
         /// A list of characters accesable when pressing the key
