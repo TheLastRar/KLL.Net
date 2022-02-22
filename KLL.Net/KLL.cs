@@ -26,62 +26,70 @@ namespace KLLNet
         delegate IntPtr KbdLayerDescriptorDelegate();
         KbdLayerDescriptorDelegate KbdLayerDescriptor;
 
-        public bool LoadDLL(string keyboardDll)
+        public KeyboardLayout LoadLayout(string keyboardDll)
         {
-            //Unload if loaded...
-            if (hHandle != IntPtr.Zero)
-                UnloadDLL();
-
-            //Load the dll
-            hHandle = LoadLibrary(keyboardDll);
-            if (hHandle == IntPtr.Zero)
+            try
             {
-                Console.Error.WriteLine("Failed to load dll");
-                UnloadDLL();
-                return false;
-            }
-
-            //Get the Keyboard import function
-            IntPtr fpKbdLayerDescriptor = GetProcAddress(hHandle, "KbdLayerDescriptor");
-
-            //Return if error
-            if (fpKbdLayerDescriptor == IntPtr.Zero)
-            {
-                Console.Error.WriteLine("Could not load kbdLayerDescriptor, is it a real keyboard layout file?");
-                UnloadDLL();
-                return false;
-            }
-
-            KbdLayerDescriptor = Marshal.GetDelegateForFunctionPointer<KbdLayerDescriptorDelegate>(fpKbdLayerDescriptor);
-
-            if (Environment.Is64BitOperatingSystem)
-            {
-                if (!Environment.Is64BitProcess)
-                {
-                    Console.Error.WriteLine("32bit process on 64Bit OS not supported");
+                //Unload if loaded...
+                if (hHandle != IntPtr.Zero)
                     UnloadDLL();
-                    return false;
+
+                //Load the dll
+                hHandle = LoadLibrary(keyboardDll);
+                if (hHandle == IntPtr.Zero)
+                {
+                    Console.Error.WriteLine("Failed to load dll");
+                    UnloadDLL();
+                    return null;
                 }
 
-                pKbdTables64 = KbdLayerDescriptor();
+                //Get the Keyboard import function
+                IntPtr fpKbdLayerDescriptor = GetProcAddress(hHandle, "KbdLayerDescriptor");
 
-                if (pKbdTables64 == IntPtr.Zero)
+                //Return if error
+                if (fpKbdLayerDescriptor == IntPtr.Zero)
                 {
+                    Console.Error.WriteLine("Could not load kbdLayerDescriptor, is it a real keyboard layout file?");
                     UnloadDLL();
-                    return false;
+                    return null;
                 }
 
-                vkArrayNoScanCode.Clear();
-                Fill64();
-            }
-            else
-            {
-                Console.Error.WriteLine("32bit OS not supported");
-                UnloadDLL();
-                return false;
-            }
+                KbdLayerDescriptor = Marshal.GetDelegateForFunctionPointer<KbdLayerDescriptorDelegate>(fpKbdLayerDescriptor);
 
-            return true;
+                KeyboardLayout layout = null;
+
+                if (Environment.Is64BitOperatingSystem)
+                {
+                    if (!Environment.Is64BitProcess)
+                    {
+                        Console.Error.WriteLine("32bit process on 64Bit OS not supported");
+                        UnloadDLL();
+                        return null;
+                    }
+
+                    pKbdTables64 = KbdLayerDescriptor();
+
+                    if (pKbdTables64 == IntPtr.Zero)
+                    {
+                        UnloadDLL();
+                        return null;
+                    }
+
+                    vkArrayNoScanCode.Clear();
+                    layout = Fill64();
+                }
+                else
+                {
+                    Console.Error.WriteLine("32bit OS not supported");
+                    UnloadDLL();
+                    return null;
+                }
+                return layout;
+            }
+            finally
+            {
+                UnloadDLL();
+            }
         }
 
         void UnloadDLL()
@@ -91,11 +99,11 @@ namespace KLLNet
             hHandle = IntPtr.Zero;
         }
 
-        unsafe void Fill64()
+        unsafe KeyboardLayout Fill64()
         {
             //If KbdTables64 aren't set, just silent return
             if (pKbdTables64 == IntPtr.Zero)
-                return;
+                return null;
 
             KbdLayer64* KbdTables64 = (KbdLayer64*)pKbdTables64.ToPointer();
 
@@ -346,6 +354,8 @@ namespace KLLNet
             //        ++pDeadKey;
             //    }
             //}
+
+            return layout;
         }
 
         protected virtual void Dispose(bool disposing) => UnloadDLL();
