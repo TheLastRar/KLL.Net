@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace KLLNet
 {
-    public class KLL: IDisposable
+    public class KLL : IDisposable
     {
         List<PhysicalKey> vkArrayNoScanCode = new List<PhysicalKey>();
 
@@ -107,9 +107,7 @@ namespace KLLNet
 
             KbdLayer64* KbdTables64 = (KbdLayer64*)pKbdTables64.ToPointer();
 
-            KeyboardLayout layout = new KeyboardLayout();
-            layout.lFlags = (KeyboardLayout.LocalFlags)(KbdTables64->fLocaleFlags & 0xFFFF);
-
+            KeyboardLayout layout = new KeyboardLayout { lFlags = (KeyboardLayout.LocalFlags)(KbdTables64->fLocaleFlags & 0xFFFF) };
 
             #region Modifiers
             Modifiers64* pCharModifiers = KbdTables64->pCharModifiers64;
@@ -119,9 +117,11 @@ namespace KLLNet
             layout.modifierKeys = new List<ModifierEntry>();
             while (pVkToBit->Vk != 0)
             {
-                ModifierEntry entry = new ModifierEntry();
-                entry.virtualKey = pVkToBit->Vk;
-                entry.modiferKey = ModiferKey.FromVirtualKey(pVkToBit->Vk);
+                ModifierEntry entry = new ModifierEntry
+                {
+                    virtualKey = pVkToBit->Vk,
+                    modiferKey = ModiferKey.FromVirtualKey(pVkToBit->Vk)
+                };
                 layout.modifierKeys.Add(entry);
                 ++pVkToBit;
             }
@@ -162,8 +162,7 @@ namespace KLLNet
             {
                 if (KbdTables64->pVSCtoVK[i] == 0xFF)
                     continue;
-                ScanCode sc = new ScanCode();
-                sc.Code = (byte)i;
+                ScanCode sc = new ScanCode { Code = (byte)i };
 
                 PhysicalKey pk = new PhysicalKey(layout);
 
@@ -182,9 +181,11 @@ namespace KLLNet
             VscVk* e0ScanCodes = KbdTables64->pVSCtoVK_E0;
             while (e0ScanCodes->Vsc > 0)
             {
-                ScanCode sc = new ScanCode();
-                sc.Code = e0ScanCodes->Vsc;
-                sc.E0Set = true;
+                ScanCode sc = new ScanCode
+                {
+                    Code = e0ScanCodes->Vsc,
+                    E0Set = true
+                };
 
                 PhysicalKey pk = new PhysicalKey(layout);
 
@@ -205,9 +206,11 @@ namespace KLLNet
             VscVk* e1ScanCodes = KbdTables64->pVSCtoVK_E1;
             while (e1ScanCodes->Vsc > 0)
             {
-                ScanCode sc = new ScanCode();
-                sc.Code = e1ScanCodes->Vsc;
-                sc.E1Set = true;
+                ScanCode sc = new ScanCode
+                {
+                    Code = e1ScanCodes->Vsc,
+                    E1Set = true
+                };
 
                 PhysicalKey pk = new PhysicalKey(layout);
 
