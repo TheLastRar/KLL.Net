@@ -78,6 +78,7 @@ namespace KLLNet
         public IReadOnlyDictionary<ModiferKeys, int> ModifierKeySetToCharIndex { get => modifierKeySetToCharIndex; }
         public IReadOnlyDictionary<int, ModiferKeys> CharIndexToModifierKeySet { get => charIndexToModifierKeySet; }
 
+        public IReadOnlyDictionary<ScanCode, PhysicalKey> Keys { get => keys; }
     }
 
     public struct ModifierEntry
@@ -86,7 +87,7 @@ namespace KLLNet
         public ModiferKeys modiferKey;
     }
 
-    struct ScanCode
+    public struct ScanCode
     {
         public byte Code;
         public bool E0Set;
