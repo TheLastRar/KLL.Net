@@ -290,12 +290,26 @@ namespace KLLNet
                 ++pVkToWchTbl;
             }
 
+            //The keys PrtSc/SysRq and Pause/Break are special.
+            //The former produces scancode E0 2A E0 37 when no modifier key is pressed simultaneously,
+            //E0 37 together with Shift or Ctrl, but 54 together with(left or right) Alt. (And one gets the expected sequences upon release)
+            //The latter produces scancode sequence E1 1D 45 E1 9D C5 when pressed(without modifier) and nothing at all upon release.
+            //However, together with(left or right) Ctrl, one gets E0 46 E0 C6, and again nothing at release. It does not repeat. 
+
             //VK Text
             VscStr* keyNames = KbdTables64->pKeyNames;
             while (keyNames->Vsc != 0)
             {
-                ScanCode sc = new ScanCode();
-                sc.Code = keyNames->Vsc;
+                ScanCode sc = new ScanCode { Code = keyNames->Vsc };
+
+                //Pause appears in reqular key names, but needs to be assigned to the E1 key
+                if (sc.Code == 0x45)
+                {
+                    sc.Code = 0x1D;
+                    sc.E1Set = true;
+                }
+
+                //Printscreen's SysReq mode logged correctly for some layouts
 
                 PhysicalKey pkinfo = null;
                 if (layout.keys.ContainsKey(sc))
@@ -311,22 +325,44 @@ namespace KLLNet
             VscStr* keyNamesExt = KbdTables64->pKeyNamesExt;
             while (keyNamesExt->Vsc != 0)
             {
-                ScanCode sc = new ScanCode();
-                sc.Code = keyNames->Vsc;
-                sc.E0Set = true;
+                ScanCode sc = new ScanCode { Code = keyNamesExt->Vsc };
 
+                //Pause and Break are the same button mapped to multiple Scan codes
+                if (sc.Code == 0x46)
+                {
+                    ScanCode pause = new ScanCode
+                    {
+                        Code = 0x1D,
+                        E1Set = true
+                    };
+                    PhysicalKey pauseKeyInfo = layout.keys[pause];
+
+                    pauseKeyInfo.Name += "\r" + Marshal.PtrToStringUni(keyNamesExt->pwsz);
+
+                    keyNamesExt++;
+                    continue;
+                }
+                //Printscreen appears in extended key names, but needs to be assigned to the non-extended key
+                else if (sc.Code == 0x37)
+                {
+                    ScanCode print = new ScanCode { Code = 0x54 };
+                    PhysicalKey printKeyInfo = layout.keys[print];
+
+                    printKeyInfo.Name = Marshal.PtrToStringUni(keyNamesExt->pwsz) + (printKeyInfo.Name != null ? "\r" + printKeyInfo.Name : "");
+
+                    keyNamesExt++;
+                    continue;
+                }
+                else
+                    //Numlock appears in the extended names, but needs to be assigned to the non-extended key
+                    //otherwise mapping is correct
+                    sc.E0Set = sc.Code != 0x45;
+
+                //Only one E1 Key, and we already handle the name
+                //So no need to check for E1 keys
                 PhysicalKey pkinfo = null;
                 if (layout.keys.ContainsKey(sc))
                     pkinfo = layout.keys[sc];
-                else
-                {
-                    sc.E0Set = false;
-                    sc.E1Set = true;
-                    if (layout.keys.ContainsKey(sc))
-                    {
-                        pkinfo = layout.keys[sc];
-                    }
-                }
 
                 if (pkinfo != null)
                     pkinfo.Name = Marshal.PtrToStringUni(keyNamesExt->pwsz);
