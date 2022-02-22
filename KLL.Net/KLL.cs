@@ -260,7 +260,7 @@ namespace KLLNet
                             {
                                 character.Character = "";
                                 character.isLigature = true;
-                                Ligature1* current = KbdTables64->pLigature;
+                                Ligature* current = KbdTables64->pLigature;
                                 while (current != null)
                                 {
                                     if (current->VirtualKey == pkinfo.virtualKeyCode && layout.modifierKeySetToCharIndex[(ModiferKeys)current->ModificationNumber] == i)
@@ -275,7 +275,7 @@ namespace KLLNet
                                         }
                                         break;
                                     }
-                                    current = (Ligature1*)(((byte*)current) + KbdTables64->cbLgEntry);
+                                    current = (Ligature*)(((byte*)current) + KbdTables64->cbLgEntry);
                                 }
                             }
                             //Regular character

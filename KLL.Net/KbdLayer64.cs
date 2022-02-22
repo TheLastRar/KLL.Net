@@ -46,7 +46,7 @@ namespace KLLNet
          */
         public byte nLgMax;
         public byte cbLgEntry;
-        public Ligature1* pLigature;
+        public Ligature* pLigature;
 
         /*
          * Type and subtype. These are optional.
