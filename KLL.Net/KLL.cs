@@ -5,10 +5,8 @@ using System.Runtime.InteropServices;
 
 namespace KLLNet
 {
-    public class KLL : IDisposable
+    public class KLL
     {
-        IntPtr hHandle;
-
         [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
         static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPWStr)] string lpLibFileName);
 
@@ -20,22 +18,18 @@ namespace KLLNet
         static extern IntPtr GetProcAddress(IntPtr hModule, [MarshalAs(UnmanagedType.LPStr)] string lpProcName);
 
         unsafe delegate void* KbdLayerDescriptorDelegate();
-        KbdLayerDescriptorDelegate KbdLayerDescriptor;
 
         public KeyboardLayout LoadLayout(string keyboardDll)
         {
+            IntPtr hHandle = IntPtr.Zero;
             try
             {
-                //Unload if loaded...
-                if (hHandle != IntPtr.Zero)
-                    UnloadDLL();
 
                 //Load the dll
                 hHandle = LoadLibrary(keyboardDll);
                 if (hHandle == IntPtr.Zero)
                 {
                     Console.Error.WriteLine("Failed to load dll");
-                    UnloadDLL();
                     return null;
                 }
 
@@ -46,23 +40,23 @@ namespace KLLNet
                 if (fpKbdLayerDescriptor == IntPtr.Zero)
                 {
                     Console.Error.WriteLine("Could not load kbdLayerDescriptor, is it a real keyboard layout file?");
-                    UnloadDLL();
+                    FreeLibrary(hHandle);
                     return null;
                 }
 
-                KbdLayerDescriptor = Marshal.GetDelegateForFunctionPointer<KbdLayerDescriptorDelegate>(fpKbdLayerDescriptor);
+                KbdLayerDescriptorDelegate KbdLayerDescriptor = Marshal.GetDelegateForFunctionPointer<KbdLayerDescriptorDelegate>(fpKbdLayerDescriptor);
 
                 KeyboardLayout layout = null;
 
-                if (Environment.Is64BitOperatingSystem)
+                unsafe
                 {
-                    unsafe
+                    if (Environment.Is64BitOperatingSystem)
                     {
                         void* pKbdTables = KbdLayerDescriptor();
 
                         if (pKbdTables == null)
                         {
-                            UnloadDLL();
+                            FreeLibrary(hHandle);
                             return null;
                         }
 
@@ -75,26 +69,19 @@ namespace KLLNet
                         else
                             layout = Fill((KbdLayer*)pKbdTables);
                     }
-                }
-                else
-                {
-                    Console.Error.WriteLine("32bit OS not supported");
-                    UnloadDLL();
-                    return null;
+                    else
+                    {
+                        Console.Error.WriteLine("32bit OS not supported");
+                        FreeLibrary(hHandle);
+                        return null;
+                    }
                 }
                 return layout;
             }
             finally
             {
-                UnloadDLL();
-            }
-        }
-
-        void UnloadDLL()
-        {
-            if (hHandle != IntPtr.Zero)
                 FreeLibrary(hHandle);
-            hHandle = IntPtr.Zero;
+            }
         }
 
         unsafe static KeyboardLayout Fill(KbdLayer* KbdTables)
@@ -429,16 +416,6 @@ namespace KLLNet
             //}
 
             return layout;
-        }
-
-        protected virtual void Dispose(bool disposing) => UnloadDLL();
-
-        ~KLL() => Dispose(false);
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
         }
     }
 }
