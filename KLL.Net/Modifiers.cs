@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Runtime.InteropServices;
 
 namespace KLLNet
 {
@@ -40,7 +35,7 @@ namespace KLLNet
     *
     \***************************************************************************/
     [StructLayout(LayoutKind.Sequential)]
-    unsafe struct Modifiers64
+    unsafe struct Modifiers
     {
         //64bit Pointers, regardless of process bitness
         public VKtoBitmask* pVkToBitmask;

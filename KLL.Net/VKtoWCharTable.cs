@@ -18,9 +18,9 @@ namespace KLLNet
     *
     \***************************************************************************/
     [StructLayout(LayoutKind.Sequential)]
-    unsafe struct VKtoWCharTable64
+    unsafe struct VKtoWCharTable
     {
-        public VKtoWChar1* pVkToWchars;
+        public VKtoWChar* pVkToWchars;
         public byte nModifications;
         public byte cbSize;
     }

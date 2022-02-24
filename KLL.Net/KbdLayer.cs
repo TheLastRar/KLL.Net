@@ -4,22 +4,22 @@ using System.Runtime.InteropServices;
 namespace KLLNet
 {
     [StructLayout(LayoutKind.Sequential)]
-    unsafe struct KbdLayer64
+    unsafe struct KbdLayer
     {
         /*
          * Modifier keys
          */
-        public Modifiers64* pCharModifiers64;
+        public Modifiers* pCharModifiers;
 
         /*
          * Characters
          */
-        public VKtoWCharTable64* pVkToWcharTable; //ptr to tbl of ptrs to tbl
+        public VKtoWCharTable* pVkToWcharTable; //ptr to tbl of ptrs to tbl
 
         /*
          * Diacritics
          */
-        public DeadKey* pDEADKEY64;
+        public DeadKey* pDeadKey;
 
         /*
          * Names of Keys

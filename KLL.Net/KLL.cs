@@ -7,11 +7,7 @@ namespace KLLNet
 {
     public class KLL : IDisposable
     {
-        List<PhysicalKey> vkArrayNoScanCode = new List<PhysicalKey>();
-
         IntPtr hHandle;
-        //IntPtr KbdTables;
-        IntPtr pKbdTables64;
 
         [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
         static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPWStr)] string lpLibFileName);
@@ -23,7 +19,7 @@ namespace KLLNet
         [DllImport("kernel32", SetLastError = true)]
         static extern IntPtr GetProcAddress(IntPtr hModule, [MarshalAs(UnmanagedType.LPStr)] string lpProcName);
 
-        delegate IntPtr KbdLayerDescriptorDelegate();
+        unsafe delegate void* KbdLayerDescriptorDelegate();
         KbdLayerDescriptorDelegate KbdLayerDescriptor;
 
         public KeyboardLayout LoadLayout(string keyboardDll)
@@ -60,23 +56,25 @@ namespace KLLNet
 
                 if (Environment.Is64BitOperatingSystem)
                 {
-                    if (!Environment.Is64BitProcess)
+                    unsafe
                     {
-                        Console.Error.WriteLine("32bit process on 64Bit OS not supported");
-                        UnloadDLL();
-                        return null;
+                        void* pKbdTables = KbdLayerDescriptor();
+
+                        if (pKbdTables == null)
+                        {
+                            UnloadDLL();
+                            return null;
+                        }
+
+                        if (!Environment.Is64BitProcess)
+                        {
+                            KbdLayer kbdLayerConverted;
+                            using (PinnedData pin = ((KbdLayerWoW64*)pKbdTables)->ConvertToStdStruct(&kbdLayerConverted))
+                                layout = Fill(&kbdLayerConverted);
+                        }
+                        else
+                            layout = Fill((KbdLayer*)pKbdTables);
                     }
-
-                    pKbdTables64 = KbdLayerDescriptor();
-
-                    if (pKbdTables64 == IntPtr.Zero)
-                    {
-                        UnloadDLL();
-                        return null;
-                    }
-
-                    vkArrayNoScanCode.Clear();
-                    layout = Fill64();
                 }
                 else
                 {
@@ -99,18 +97,17 @@ namespace KLLNet
             hHandle = IntPtr.Zero;
         }
 
-        unsafe KeyboardLayout Fill64()
+        unsafe static KeyboardLayout Fill(KbdLayer* KbdTables)
         {
-            //If KbdTables64 aren't set, just silent return
-            if (pKbdTables64 == IntPtr.Zero)
+            List<PhysicalKey> vkArrayNoScanCode = new List<PhysicalKey>();
+
+            if (KbdTables == null)
                 return null;
 
-            KbdLayer64* KbdTables64 = (KbdLayer64*)pKbdTables64.ToPointer();
-
-            KeyboardLayout layout = new KeyboardLayout { lFlags = (KeyboardLayout.LocalFlags)(KbdTables64->fLocaleFlags & 0xFFFF) };
+            KeyboardLayout layout = new KeyboardLayout { lFlags = (KeyboardLayout.LocalFlags)(KbdTables->fLocaleFlags & 0xFFFF) };
 
             #region Modifiers
-            Modifiers64* pCharModifiers = KbdTables64->pCharModifiers64;
+            Modifiers* pCharModifiers = KbdTables->pCharModifiers;
             VKtoBitmask* pVkToBit = pCharModifiers->pVkToBitmask;
 
             //VK given is for Unsided Keys (i.e. not LShift but Shift)
@@ -147,6 +144,7 @@ namespace KLLNet
                             keysForCurrentCombination |= ModiferKey.FromVirtualKey(pCharModifiers->pVkToBitmask[keyIndex].Vk);
                     }
                     //Record
+                    int modBits = pCharModifiers->ModNumber[modBitsIndex];
                     layout.charIndexToModifierKeySet.Add(pCharModifiers->ModNumber[modBitsIndex], keysForCurrentCombination);
                     layout.modifierKeySetToCharIndex.Add(keysForCurrentCombination, pCharModifiers->ModNumber[modBitsIndex]);
                 }
@@ -158,27 +156,27 @@ namespace KLLNet
             layout.keys = new Dictionary<ScanCode, PhysicalKey>();
             //Some virtual keys are assigned to multiple Scancodes (TAB gets assigned to 0x7C)
             Dictionary<ushort, PhysicalKey> vkToKey = new Dictionary<ushort, PhysicalKey>();
-            for (int i = 0; i < KbdTables64->bMaxVSCtoVK; i++)
+            for (int i = 0; i < KbdTables->bMaxVSCtoVK; i++)
             {
-                if (KbdTables64->pVSCtoVK[i] == 0xFF)
+                if (KbdTables->pVSCtoVK[i] == 0xFF)
                     continue;
                 ScanCode sc = new ScanCode { Code = (byte)i };
 
                 PhysicalKey pk = new PhysicalKey(layout);
 
-                if (vkToKey.ContainsKey(KbdTables64->pVSCtoVK[i]))
+                if (vkToKey.ContainsKey(KbdTables->pVSCtoVK[i]))
                 {
-                    ScanCode oldsc = layout.keys.FirstOrDefault(x => x.Value == vkToKey[KbdTables64->pVSCtoVK[i]]).Key;
-                    Console.WriteLine($"VK 0x{KbdTables64->pVSCtoVK[i]:X} has multiple SC (All Non-Extended), new SC:0x{sc.Code:X}, old SC:0x{oldsc.Code:X}");
+                    ScanCode oldsc = layout.keys.FirstOrDefault(x => x.Value == vkToKey[KbdTables->pVSCtoVK[i]]).Key;
+                    Console.WriteLine($"VK 0x{KbdTables->pVSCtoVK[i]:X} has multiple SC (All Non-Extended), new SC:0x{sc.Code:X}, old SC:0x{oldsc.Code:X}");
                 }
                 else
-                    vkToKey.Add(KbdTables64->pVSCtoVK[i], pk);
+                    vkToKey.Add(KbdTables->pVSCtoVK[i], pk);
 
-                pk.virtualKeyCode = KbdTables64->pVSCtoVK[i];
+                pk.virtualKeyCode = KbdTables->pVSCtoVK[i];
                 layout.keys.Add(sc, pk);
             }
 
-            VscVk* e0ScanCodes = KbdTables64->pVSCtoVK_E0;
+            VscVk* e0ScanCodes = KbdTables->pVSCtoVK_E0;
             while (e0ScanCodes->Vsc > 0)
             {
                 ScanCode sc = new ScanCode
@@ -203,7 +201,7 @@ namespace KLLNet
                 e0ScanCodes++;
             }
 
-            VscVk* e1ScanCodes = KbdTables64->pVSCtoVK_E1;
+            VscVk* e1ScanCodes = KbdTables->pVSCtoVK_E1;
             while (e1ScanCodes->Vsc > 0)
             {
                 ScanCode sc = new ScanCode
@@ -230,12 +228,12 @@ namespace KLLNet
             #endregion
 
             //Handle all the chars with modifieres
-            VKtoWCharTable64* pVkToWchTbl = KbdTables64->pVkToWcharTable;
+            VKtoWCharTable* pVkToWchTbl = KbdTables->pVkToWcharTable;
 
             while (pVkToWchTbl->pVkToWchars != null)
             {
                 //pVkToWchars is an array of VKtoWChar1
-                VKtoWChar1* pVkToWch = pVkToWchTbl->pVkToWchars;
+                VKtoWChar* pVkToWch = pVkToWchTbl->pVkToWchars;
                 while (pVkToWch->VirtualKey != 0)
                 {
                     if (pVkToWch->VirtualKey != 0xFF)
@@ -271,7 +269,7 @@ namespace KLLNet
                             {
                                 Console.WriteLine($"Found Dead Key {pVkToWch->VirtualKey:X}");
 
-                                VKtoWChar1* pVkToWchMext = (VKtoWChar1*)(((byte*)pVkToWch) + pVkToWchTbl->cbSize);
+                                VKtoWChar* pVkToWchMext = (VKtoWChar*)(((byte*)pVkToWch) + pVkToWchTbl->cbSize);
                                 character.Character = pVkToWchMext->wch[i].ToString();
                                 character.IsDeadKey = true;
                             }
@@ -280,13 +278,13 @@ namespace KLLNet
                             {
                                 character.Character = "";
                                 character.isLigature = true;
-                                Ligature* current = KbdTables64->pLigature;
+                                Ligature* current = KbdTables->pLigature;
                                 while (current != null)
                                 {
                                     if (current->VirtualKey == pVkToWch->VirtualKey && layout.modifierKeySetToCharIndex[(ModiferKeys)current->ModificationNumber] == i)
                                     {
                                         char* ligChar = current->wch;
-                                        for (int j = 0; j < KbdTables64->nLgMax; j++)
+                                        for (int j = 0; j < KbdTables->nLgMax; j++)
                                         {
                                             if (current->wch[j] == 0xF000)
                                                 break;
@@ -295,7 +293,7 @@ namespace KLLNet
                                         }
                                         break;
                                     }
-                                    current = (Ligature*)(((byte*)current) + KbdTables64->cbLgEntry);
+                                    current = (Ligature*)(((byte*)current) + KbdTables->cbLgEntry);
                                 }
                             }
                             //Regular character
@@ -321,7 +319,7 @@ namespace KLLNet
                             }
                         }
                     }
-                    pVkToWch = (VKtoWChar1*)(((byte*)pVkToWch) + pVkToWchTbl->cbSize);
+                    pVkToWch = (VKtoWChar*)(((byte*)pVkToWch) + pVkToWchTbl->cbSize);
                 }
                 ++pVkToWchTbl;
             }
@@ -333,7 +331,7 @@ namespace KLLNet
             //However, together with(left or right) Ctrl, one gets E0 46 E0 C6, and again nothing at release. It does not repeat. 
 
             //VK Text
-            VscStr* keyNames = KbdTables64->pKeyNames;
+            VscStr* keyNames = KbdTables->pKeyNames;
             while (keyNames->Vsc != 0)
             {
                 ScanCode sc = new ScanCode { Code = keyNames->Vsc };
@@ -358,7 +356,7 @@ namespace KLLNet
 
                 keyNames++;
             }
-            VscStr* keyNamesExt = KbdTables64->pKeyNamesExt;
+            VscStr* keyNamesExt = KbdTables->pKeyNamesExt;
             while (keyNamesExt->Vsc != 0)
             {
                 ScanCode sc = new ScanCode { Code = keyNamesExt->Vsc };

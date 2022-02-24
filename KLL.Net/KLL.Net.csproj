@@ -43,16 +43,20 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DeadKey.cs" />
-    <Compile Include="KbdLayer64.cs" />
+    <Compile Include="KbdLayer.cs" />
+    <Compile Include="KbdLayerWoW64.cs" />
     <Compile Include="KeyboardLayout.cs" />
     <Compile Include="KLL.cs" />
     <Compile Include="Ligature.cs" />
-    <Compile Include="Modifiers64.cs" />
+    <Compile Include="Modifiers.cs" />
+    <Compile Include="ModifierWoW64.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="VKtoBitmask.cs" />
     <Compile Include="VKtoWChar.cs" />
-    <Compile Include="VKtoWCharTable64.cs" />
+    <Compile Include="VKtoWCharTable.cs" />
+    <Compile Include="VKtoWCharTableWoW64.cs" />
     <Compile Include="VscStr.cs" />
+    <Compile Include="VscStrWoW64.cs" />
     <Compile Include="VscVk.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
